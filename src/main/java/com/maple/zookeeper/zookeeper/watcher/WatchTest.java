@@ -8,6 +8,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.util.List;
 import java.util.concurrent.CountDownLatch;
 
 /**
@@ -17,6 +18,7 @@ public class WatchTest {
     private static final Logger LOGGER = LoggerFactory.getLogger(WatchTest.class);
     private static final String CONNECT_ADDR = "127.0.0.1:2181";
     private static final String CONFIG_PATH = "/test";
+    private static final String RUNTIME_PATH = "/runtime";
     private static final String NODE_PATH = "/node";
     /**
      * session超时时间 10s 内连接不上，超时
@@ -62,17 +64,42 @@ public class WatchTest {
         LOGGER.info("--->已连上服务器，接下来开始CRUD");
     }
 
-    protected void syncZkConfigInfo(ZkInfo zkInfo) {
+    protected void syncService(ZkInfo zkInfo) throws KeeperException, InterruptedException {
+        syncZkRuntimeInfo(zkInfo);
+        syncZkConfigInfo(zkInfo);
+
+    }
+
+    private void syncZkRuntimeInfo(ZkInfo zkInfo) throws KeeperException, InterruptedException {
+        //1.获取 globalConfig  异步模式
+        List<String> children = zookeeper.getChildren(RUNTIME_PATH, watchedEvent -> {
+            if (watchedEvent.getType() == Watcher.Event.EventType.NodeChildrenChanged) {
+                if (zkInfo.counter++ < 10) {
+                    LOGGER.info(getClass().getSimpleName() + "<--> {} 子节点发生变化，重新获取配置信息", watchedEvent.getPath());
+                    try {
+                        syncZkRuntimeInfo(zkInfo);
+                    } catch (KeeperException | InterruptedException e) {
+                        LOGGER.error(e.getMessage(), e);
+                    }
+                }
+            }
+        });
+        LOGGER.info("syncZkRuntimeInfo children,{}, {}", children, zkInfo.counter);
+    }
+
+
+    private void syncZkConfigInfo(ZkInfo zkInfo) {
         //1.获取 globalConfig  异步模式
         zookeeper.getData(CONFIG_PATH, watchedEvent -> {
             if (watchedEvent.getType() == Watcher.Event.EventType.NodeDataChanged) {
-                if (zkInfo.counter++ < 10) {
+                if (zkInfo.configCounter++ < 10) {
                     LOGGER.info(getClass().getSimpleName() + "<--> {} 节点内容发生变化，重新获取配置信息", watchedEvent.getPath());
                     syncZkConfigInfo(zkInfo);
                 }
             }
         }, globalConfigDataCb, zkInfo);
     }
+
 
     /**
      * 全局配置异步getData
@@ -87,7 +114,7 @@ public class WatchTest {
                 LOGGER.error("全局配置节点不存在");
                 break;
             case OK:
-                LOGGER.info("------> 异步获取zk data :{}", ctx);
+                LOGGER.info("------> 异步获取zk data :{}", ((ZkInfo) ctx).counter);
                 break;
             default:
                 break;
@@ -95,11 +122,11 @@ public class WatchTest {
     };
 
 
-    public static void main(String[] args) throws InterruptedException {
+    public static void main(String[] args) throws InterruptedException, KeeperException {
         CountDownLatch cdl = new CountDownLatch(1);
         WatchTest watchTest = new WatchTest();
         for (int i = 0; i < 1000; i++) {
-            watchTest.syncZkConfigInfo(new ZkInfo("zookeeper watch " + i));
+            watchTest.syncService(new ZkInfo("zookeeper watch " + i));
         }
 
         cdl.await();
@@ -108,6 +135,7 @@ public class WatchTest {
     static class ZkInfo {
         final String data;
         int counter = 1;
+        int configCounter = 1;
 
         ZkInfo(String data) {
             this.data = data;
