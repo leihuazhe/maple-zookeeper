@@ -1,9 +1,6 @@
 package com.maple.zookeeper.zookeeper.watcher;
 
-import org.apache.zookeeper.AsyncCallback;
-import org.apache.zookeeper.KeeperException;
-import org.apache.zookeeper.Watcher;
-import org.apache.zookeeper.ZooKeeper;
+import org.apache.zookeeper.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -72,32 +69,26 @@ public class WatchTest {
 
     private void syncZkRuntimeInfo(ZkInfo zkInfo) throws KeeperException, InterruptedException {
         //1.获取 globalConfig  异步模式
-        List<String> children = zookeeper.getChildren(RUNTIME_PATH, watchedEvent -> {
-            if (watchedEvent.getType() == Watcher.Event.EventType.NodeChildrenChanged) {
-                if (zkInfo.counter++ < 10) {
-                    LOGGER.info(getClass().getSimpleName() + "<--> {} 子节点发生变化，重新获取配置信息", watchedEvent.getPath());
-                    try {
-                        syncZkRuntimeInfo(zkInfo);
-                    } catch (KeeperException | InterruptedException e) {
-                        LOGGER.error(e.getMessage(), e);
-                    }
+        List<String> children = zookeeper.getChildren(RUNTIME_PATH, new ZKWathcer(zkInfo, type -> {
+            if (type == 1) {
+                try {
+                    syncZkRuntimeInfo(zkInfo);
+                } catch (KeeperException | InterruptedException e) {
+                    LOGGER.error(e.getMessage(), e);
                 }
             }
-        });
+        }));
         LOGGER.info("syncZkRuntimeInfo children,{}, {}", children, zkInfo.counter);
     }
 
 
     private void syncZkConfigInfo(ZkInfo zkInfo) {
         //1.获取 globalConfig  异步模式
-        zookeeper.getData(CONFIG_PATH, watchedEvent -> {
-            if (watchedEvent.getType() == Watcher.Event.EventType.NodeDataChanged) {
-                if (zkInfo.configCounter++ < 10) {
-                    LOGGER.info(getClass().getSimpleName() + "<--> {} 节点内容发生变化，重新获取配置信息", watchedEvent.getPath());
-                    syncZkConfigInfo(zkInfo);
-                }
+        zookeeper.getData(CONFIG_PATH, new ZKWathcer(zkInfo, type -> {
+            if (type == 2) {
+                syncZkConfigInfo(zkInfo);
             }
-        }, globalConfigDataCb, zkInfo);
+        }), globalConfigDataCb, zkInfo);
     }
 
 
@@ -114,7 +105,7 @@ public class WatchTest {
                 LOGGER.error("全局配置节点不存在");
                 break;
             case OK:
-                LOGGER.info("------> 异步获取zk data :{}", ((ZkInfo) ctx).counter);
+                LOGGER.info("------> 异步获取zk data :{}", ((ZkInfo) ctx).configCounter);
                 break;
             default:
                 break;
@@ -144,6 +135,42 @@ public class WatchTest {
         @Override
         public String toString() {
             return data + " counter:" + counter;
+        }
+    }
+
+    interface Callback {
+
+        void callback(int type);
+    }
+
+
+    static class ZKWathcer implements Watcher {
+        final ZkInfo zkInfo;
+        final Callback callback;
+
+
+        ZKWathcer(ZkInfo zkInfo, Callback callback) {
+            this.zkInfo = zkInfo;
+            this.callback = callback;
+        }
+
+
+        @Override
+        public void process(WatchedEvent watchedEvent) {
+            if (watchedEvent.getType() == Watcher.Event.EventType.NodeChildrenChanged) {
+                if (zkInfo.counter++ < 10) {
+                    LOGGER.info(getClass().getSimpleName() + "<--> {} 子节点发生变化，重新获取配置信息", watchedEvent.getPath());
+                    callback.callback(1);
+//                        syncZkRuntimeInfo(zkInfo);
+                }
+            } else if (watchedEvent.getType() == Watcher.Event.EventType.NodeDataChanged) {
+                if (zkInfo.configCounter++ < 10) {
+                    LOGGER.info(getClass().getSimpleName() + "<--> {} 节点内容发生变化，重新获取配置信息", watchedEvent.getPath());
+                    callback.callback(2);
+                }
+            }
+
+
         }
     }
 
