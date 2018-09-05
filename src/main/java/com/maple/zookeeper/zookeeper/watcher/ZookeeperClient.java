@@ -12,7 +12,7 @@ import java.util.concurrent.CountDownLatch;
  * @author maple 2018.09.05 上午9:26
  */
 public class ZookeeperClient {
-    private static final Logger LOGGER = LoggerFactory.getLogger(WatchTest.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(WatchMain.class);
     private static final String CONNECT_ADDR = "127.0.0.1:2181";
     private static final String CONFIG_PATH = "/test";
     private static final String RUNTIME_PATH = "/runtime";
@@ -29,14 +29,14 @@ public class ZookeeperClient {
     private ZooKeeper zookeeper;
 
     private static ZookeeperClient zookeeperClient;
+
     /**
-     *
      * 单例
      */
-    public static ZookeeperClient getInstance(){
-        if(zookeeperClient==null){
-            synchronized (ZookeeperClient.class){
-                if (zookeeperClient==null){
+    public static ZookeeperClient getInstance() {
+        if (zookeeperClient == null) {
+            synchronized (ZookeeperClient.class) {
+                if (zookeeperClient == null) {
                     zookeeperClient = new ZookeeperClient();
                 }
             }
@@ -52,7 +52,6 @@ public class ZookeeperClient {
             LOGGER.error(e.getMessage(), e);
         }
     }
-
 
 
     /**
@@ -113,7 +112,7 @@ public class ZookeeperClient {
                 LOGGER.error("全局配置节点不存在");
                 break;
             case OK:
-                LOGGER.info("------> 异步获取zk data,获取次数:{}", ((ZkServiceInfo) ctx).configCounter);
+                LOGGER.info("service: {} 异步获取config data, path:{}, 次数:{}", ((ZkServiceInfo) ctx).getService(), path, ((ZkServiceInfo) ctx).configCounter);
                 break;
             default:
                 break;
