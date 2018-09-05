@@ -1,3 +1,7 @@
 .idea/
 maple-zookeeper.iml
 target
+logs
+logs/
+src/main/java/com/maple/zookeeper/.DS_Store
+src/main/java/com/maple/zookeeper/zookeeper/.DS_Store
