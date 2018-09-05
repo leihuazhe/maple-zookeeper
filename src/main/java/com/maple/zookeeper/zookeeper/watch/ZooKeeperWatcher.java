@@ -1,4 +1,4 @@
-package com.maple.zookeeper.zookeeper.watcher;
+package com.maple.zookeeper.zookeeper.watch;
 
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
