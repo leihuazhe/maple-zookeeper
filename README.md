@@ -1,5 +1,5 @@
-#maple-zookeeper
-# zookeeper 学习 
+
+# `maple-zookeeper` 工程作为`zookeeper`学习项目
 
 ---
 ### 重点对三种客户端的学习研究，关于zookeeper底层实现，没有过多研究
